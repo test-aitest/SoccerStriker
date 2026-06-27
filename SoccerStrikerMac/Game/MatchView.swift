@@ -8,12 +8,16 @@ import SoccerShared
 struct MatchView: View {
     @Bindable var server: NetworkServer
     @State private var model: GameModel
+    let home: Country
+    let away: Country
     let onExit: () -> Void
 
-    init(server: NetworkServer, onExit: @escaping () -> Void) {
+    init(server: NetworkServer, home: Country, away: Country, onExit: @escaping () -> Void) {
         self.server = server
+        self.home = home
+        self.away = away
         self.onExit = onExit
-        _model = State(initialValue: GameModel(server: server))
+        _model = State(initialValue: GameModel(server: server, home: home, away: away))
     }
 
     var body: some View {
@@ -33,7 +37,16 @@ struct MatchView: View {
                     .frame(maxHeight: .infinity, alignment: .center)
                     .allowsHitTesting(false)
             }
+
+            // 横からスライドインするカットイン（シュート/ドリブル）。
+            if let cut = model.cutIn {
+                CutInView(cut: cut)
+                    .id(cut.id)
+                    .transition(.move(edge: cut.fromLeft ? .leading : .trailing).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.cutIn?.id)
         .frame(minWidth: 960, minHeight: 600)
         .background(Color.black)
         .focusable()
@@ -46,10 +59,11 @@ struct MatchView: View {
 
     private var scoreboard: some View {
         HStack(spacing: 24) {
-            teamScore("YOU", model.homeScore, .cyan)
+            teamScore(home, model.homeScore)
             Text("VS").font(.headline).foregroundStyle(.white.opacity(0.5))
-            teamScore("CPU", model.awayScore, .orange)
+            teamScore(away, model.awayScore)
             Spacer()
+            aiBadge
             connectionBadge
         }
         .padding(.horizontal, 28).padding(.vertical, 12)
@@ -57,10 +71,22 @@ struct MatchView: View {
         .padding(.horizontal, 24)
     }
 
-    private func teamScore(_ name: String, _ score: Int, _ color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text(name).font(.caption2.bold()).foregroundStyle(color)
-            Text("\(score)").font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(.white)
+    private func teamScore(_ country: Country, _ score: Int) -> some View {
+        HStack(spacing: 8) {
+            FlagView(country: country, height: 22)
+            VStack(spacing: 2) {
+                Text(country.name).font(.caption2.bold()).foregroundStyle(country.primaryColor)
+                Text("\(score)").font(.system(size: 28, weight: .black, design: .rounded)).foregroundStyle(.white)
+            }
+        }
+    }
+
+    private var aiBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "brain.head.profile")
+                .foregroundStyle(model.aiActive ? .purple : .gray)
+            Text(model.aiActive ? "Gemini AI" : "Rule AI")
+                .font(.caption2).foregroundStyle(.white.opacity(0.7))
         }
     }
 
@@ -68,7 +94,7 @@ struct MatchView: View {
         HStack(spacing: 6) {
             Image(systemName: server.isPhoneConnected ? "iphone.gen3" : "iphone.slash")
                 .foregroundStyle(server.isPhoneConnected ? .green : .gray)
-            Text(server.isPhoneConnected ? "接続中" : "キーボード(Space)")
+            Text(server.isPhoneConnected ? "Connected" : "Keyboard (Space)")
                 .font(.caption2).foregroundStyle(.white.opacity(0.7))
         }
     }
@@ -94,6 +120,66 @@ struct MatchView: View {
     }
 }
 
+// MARK: - カットイン
+
+private struct CutInView: View {
+    let cut: CutIn
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if !cut.fromLeft { Spacer() }
+            content
+            if cut.fromLeft { Spacer() }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity,
+               alignment: cut.isManager ? .top : .bottom)
+    }
+
+    @ViewBuilder private var content: some View {
+        if cut.isManager {
+            // 監督：画像の「下」に文言を出す（重ならないように）。
+            VStack(spacing: 10) {
+                if let img = cut.image {
+                    Image(nsImage: img)
+                        .resizable().interpolation(.high).scaledToFit()
+                        .frame(height: 260)
+                        .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
+                }
+                banner
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 80)   // スコアボードの下・画面上部に表示
+        } else {
+            // 選手：画像にタイトルを重ねる従来スタイル。
+            ZStack(alignment: .bottom) {
+                if let img = cut.image {
+                    Image(nsImage: img)
+                        .resizable().interpolation(.high).scaledToFit()
+                        .frame(height: 380)
+                        .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
+                }
+            }
+            .overlay(alignment: cut.fromLeft ? .topTrailing : .topLeading) {
+                banner.rotationEffect(.degrees(cut.fromLeft ? -6 : 6)).offset(y: 70)
+            }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 30)
+        }
+    }
+
+    private var banner: some View {
+        HStack(spacing: 6) {
+            if cut.isManager { Text("🎯").font(.system(size: 28)) }
+            Text(cut.title)
+                .font(.system(size: 34, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 22).padding(.vertical, 12)
+        .background(cut.color.gradient, in: RoundedRectangle(cornerRadius: 10))
+        .shadow(radius: 10)
+    }
+}
+
 // MARK: - チャンスゲージ
 
 private struct ChanceOverlay: View {
@@ -108,13 +194,13 @@ private struct ChanceOverlay: View {
                 .shadow(radius: 8)
 
             if let success = chance.success {
-                Text(success ? "成功！" : "失敗")
+                Text(success ? "SUCCESS!" : "MISS")
                     .font(.system(size: 64, weight: .black, design: .rounded))
                     .foregroundStyle(success ? .green : .white.opacity(0.8))
                     .shadow(radius: 10)
             } else {
                 gauge
-                Text("iPhone を振る / Space")
+                Text("Swing iPhone / Space")
                     .font(.callout).foregroundStyle(.white.opacity(0.7))
             }
             Spacer().frame(height: 60)
@@ -166,7 +252,7 @@ private struct ChanceOverlay: View {
                 }
             }
             .frame(width: 460, height: 26)
-            Text("連打！").font(.headline.bold()).foregroundStyle(.orange)
+            Text("MASH!").font(.headline.bold()).foregroundStyle(.orange)
                 .scaleEffect(1 + CGFloat(chance.flash) * 1.5)
         }
     }

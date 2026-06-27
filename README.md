@@ -1,75 +1,132 @@
-# Soccer Striker ⚽️
+# Soccer Striker
 
-Nintendo Switch Sports の「サッカー」を参考にした **4vs4 サッカー** ゲーム。
-**Mac がゲーム画面**、**iPhone を振って蹴るコントローラ**になる（HomeRunDerby と同じ構成）。
+A real-time, **agent-driven 4 vs 4 football game**. Both teams are played by autonomous AI
+agents (powered by **Gemini 3.5 Flash**), and the human **steps in at decisive moments** by
+swinging an iPhone as a motion controller — in the spirit of Nintendo Wii Sports.
+
+The Mac runs the full 3D match; the iPhone is the controller.
+
+> Built for the Gemini Tokyo Hackathon 2026.
 
 ```
-┌─────────────────┐   Bonjour/UDP P2P   ┌────────────────────┐
-│ SoccerStrikerKick│ ──────────────────▶ │ SoccerStrikerMac    │
-│ (iPhone=蹴り役)   │  KickEvent          │ (Mac=ゲーム本体)      │
-│ CMMotionManager  │ ◀────────────────── │ NetworkServer       │
-│ →KickDetector    │  GoalEvent(振動)     │ →GameModel(60Hz)    │
-└─────────────────┘                      │ →SoccerEngine 4v4   │
-        共有: SoccerShared                  │ →WebSceneKit(Three) │
-                                          └────────────────────┘
+┌──────────────────┐   Bonjour / UDP P2P    ┌─────────────────────────┐
+│ SoccerStrikerKick │ ─────────────────────▶ │ SoccerStrikerMac         │
+│ (iPhone controller)│  KickEvent             │ (game host)              │
+│ CoreMotion 100Hz   │ ◀───────────────────── │ NetworkServer            │
+│ → KickDetector     │  GoalEvent (haptics)   │ → GameModel (60Hz loop)  │
+└──────────────────┘                         │ → SoccerEngine (4v4 AI)  │
+         shared: SoccerShared                  │ → AgentBrain → Gemini    │
+                                              │ → WebSceneKit (Three.js) │
+                                              └─────────────────────────┘
 ```
 
-## 構成
+## Concept
 
-| ターゲット / パッケージ | 役割 |
-|----------------------|------|
-| `SoccerShared` | プロトコル・モーションイベント型・**KickDetector**・**SoccerEngine(4v4物理+AI)**。純Swiftでテスト済み |
-| `SoccerStrikerMac` | ゲーム本体。`NetworkServer`/`GameModel`/`MatchView`。Three.js を WebSceneKit で描画 |
-| `SoccerStrikerKick` | iPhone コントローラ。`MotionStreamer`/`NetworkClient`/`HapticsPlayer` |
-| `Packages/WebSceneKit` | WKWebView で Three.js を動かす汎用パッケージ（HomeRunDerby から流用） |
-| `WebSource/pitch.js` | ピッチ・ゴール・選手・ボールの 3D 描画 |
+- **Agents play, humans join in.** You do not micromanage 8 players. The AI plays the match;
+  you intervene only when it counts.
+- **Attack — Shot chance:** when your team settles the ball near the goal, time freezes and a
+  gauge appears. Nail it for a guaranteed goal.
+- **Defense — Save chance:** when an on-target shot approaches your goal, a gauge appears.
+  Nail it to save; miss and you concede.
+- Two gauge types alternate: a **timing** gauge (swing inside the sweet zone) and a
+  **power** gauge (mash within the time limit).
 
-## セットアップ
+## How the AI works (the core idea)
+
+An LLM cannot drive a 60fps game frame-by-frame — network latency and cost make per-frame
+calls impossible. Soccer Striker uses a **hybrid agent loop**:
+
+```
+Gemini 3.5 Flash  ──(every ~1.5s)──▶  per-player intentions
+   move / mark / pass / shoot / support / dribble  +  target position
+                          │
+                          ▼
+60Hz local engine  ──▶  executes the intentions every frame (physics + steering)
+```
+
+- **Gemini is the decision-maker; the engine is the muscle.** The match never stalls waiting
+  on the model, and players keep acting on their last intention between calls.
+- If no API key is set or a call fails, the engine **gracefully falls back to a built-in
+  rule-based AI** — the game always runs, fully offline.
+- The rule-based layer is itself a real multi-agent system: possession model, player roles,
+  steering with **separation** (no clustering), man-marking, pass-lane checks, off-ball runs.
+- `SoccerEngine` is pure Swift and deterministic — covered by **16 unit tests**.
+
+## Features
+
+- 4 vs 4 (4 outfield + GK per side), both teams fully autonomous.
+- National teams: Japan, Brazil, Spain, Argentina, Korea, USA — real flags (SVG) and
+  per-nation kit colors; player models for Japan and Brazil.
+- 3D pitch, players, goals and crowd rendered with **Three.js** inside a WebView; run
+  animation, ball spin, uniforms by nation.
+- **Cut-in animations**: shot, dribble, and a manager reaction ("tactics on point") when the
+  agent's call pays off.
+- **Audio**: procedural SFX (kick, whistle, chance cue) plus real stadium ambience and title
+  BGM.
+- iPhone haptics on goals and chances.
+- UI in English for a global audience.
+
+## Project layout
+
+| Target / Package | Role |
+|------------------|------|
+| `SoccerShared` | Pure-Swift core: protocol, motion events, `KickDetector`, `SoccerEngine` (4v4 physics + multi-agent AI), `Intention`. Unit-tested. |
+| `SoccerStrikerMac` | The game host. `NetworkServer`, `GameModel` (60Hz loop), `MatchView`, `AgentBrain` (Gemini client), `AudioFX`, country select. |
+| `SoccerStrikerKick` | iPhone controller. `MotionStreamer`, `NetworkClient`, `HapticsPlayer`. |
+| `Packages/WebSceneKit` | Generic WKWebView host for Three.js scenes. |
+| `WebSource/pitch.js` | 3D pitch / players / ball rendering. |
+| `slides/` | Pitch deck (`index.html`, `SoccerStriker.pdf`). |
+
+## Tech stack
+
+- **AI:** Gemini 3.5 Flash via the Gemini API (agentic, JSON-structured output)
+- **App:** Swift 6 / SwiftUI — macOS game + iOS controller, shared Swift package
+- **Render:** Three.js / WebKit
+- **Motion & Net:** CoreMotion, Network.framework (Bonjour / UDP peer-to-peer)
+- **Tooling:** XcodeGen, esbuild
+
+## Setup
 
 ```bash
-# 1. Web バンドルを生成（WebSource → Mac の Resources/web）
+# 1. Build the web bundle (WebSource → Mac Resources/web)
 npm install
-npm run build          # 変更監視は npm run watch
+npm run build            # or: npm run watch
 
-# 2. Xcode プロジェクト生成
+# 2. Configure the Gemini API key (.env-style, read at build time)
+cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+#   then edit Config/Secrets.xcconfig:
+#   GEMINI_API_KEY = AIza...        (get one from Google AI Studio)
+#   Secrets.xcconfig is gitignored. Without a key the game runs on the rule-based AI.
+
+# 3. Generate the Xcode project
 xcodegen generate
 
-# 3. 起動
-open SoccerStriker.xcodeproj   # Mac スキームで実行
+# 4. Run
+open SoccerStriker.xcodeproj     # run the SoccerStrikerMac scheme
 ```
 
-iPhone 側（`SoccerStrikerKick`）を実機にインストールして起動すると、同一 Wi-Fi
-（または P2P/AWDL）上の Mac を自動で見つけて接続する。
+Install `SoccerStrikerKick` on an iPhone and launch it; it auto-discovers the Mac on the same
+Wi-Fi (or P2P / AWDL) and connects.
 
-## ゲーム性（AI vs AI ＋ 人間の決定的介入）
+## Controls
 
-[Pirhan/soccer-game-ai](https://github.com/Pirhan/soccer-game-ai) のように **両チームをルールベース AI が自動で操作**して試合が進む。
-プレイヤーは常時操作するのではなく、**勝負どころで iPhone を振って介入**する：
+- **iPhone:** when a gauge appears on a chance or pinch, **swing the device** (well-timed, or
+  mash for the power gauge).
+- **Keyboard (no iPhone needed):** `Space` = swing, `Esc` = back to title.
 
-- **シュートチャンス（攻撃）**: 自チームがゴール前に持ち込むと時間が止まりゲージ出現 → 成功で **100% ゴール**
-- **セーブチャンス（守備）**: 相手の枠内シュートが来ると時間が止まりゲージ出現 → 成功で **防ぐ**、失敗で失点
+## Tests
 
-ゲージはチャンスごとに 2 種が交互に出る：
-- **タイミング型**: 左右に動くマーカーを中央の「当たりゾーン」で振る
-- **連打パワー型**: 制限時間内に振りまくってバーを規定ラインまで溜める
+```bash
+cd SoccerShared && swift test      # 16 tests: engine, kick detection, protocol, AI behavior
+```
 
-## 操作
+Notable tests: ball advances into the opponent half, the AI generates chances over time, and
+field players spread across the pitch width (no central clustering).
 
-- **iPhone**: チャンス/ピンチでゲージが出たら **端末を振る**（タイミングよく／連打で）。
-- **キーボード（iPhone なしの動作確認用）**: `Space`=振る / `Esc`=タイトル。
+## Roadmap
 
-## いま動くもの
-
-- 4vs4（各 GK1+フィールド4）の **両チーム AI 自動進行**（パス/シュート/ドリブル判断、フォーメーション維持）
-- **立体的な 3D 選手モデル**（走りアニメ・向き・操作リング）、観客スタンド、ネット付きゴール
-- **チャンス/ピンチのゲージ介入**（タイミング型・連打パワー型）、成功=100%ゴール/セーブ
-- 得点・チャンス時に iPhone へ振動フィードバック
-- `SoccerEngine` は純 Swift・**14 UnitTest 合格**（AI が実際にチャンスを生むことも検証）
-
-## 今後のロードマップ
-
-1. **glTF 選手モデル**＋本物の走り/蹴り/ダイビングモーション（`WebSceneAssetRouter` 利用）
-2. **演出**: ボール追従カメラ、ゴールネット揺れ、リプレイ、効果音（キック/歓声/ホイッスル）
-3. **AI 高度化**: マーク、スペースへの走り込み、難易度調整
-4. **試合フロー**: 前後半・時間・スコアボード演出
-5. **チャンス種類の拡張**: ダイビングヘッド専用チャンス、PK 等
+1. 11 vs 11 and richer tactics driven directly by the agent.
+2. glTF player models with real run / kick / dive motion.
+3. Ball-follow camera, goal-net physics, replays.
+4. Match flow: halves, clock, scoreboard polish, difficulty.
+5. Online play and more national teams.

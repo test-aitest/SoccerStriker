@@ -5,24 +5,31 @@ struct RootView: View {
     @Bindable var server: NetworkServer
     @State private var route: Route = .title
     @State private var titleBGM = MusicPlayer(resource: "title", volume: 0.55)
+    @State private var home: Country = .japan
+    @State private var away: Country = .brazil
 
-    enum Route { case title, match }
+    enum Route { case title, select, match }
 
     var body: some View {
         ZStack {
             switch route {
             case .title:
-                TitleView(onStart: { route = .match })
+                TitleView(onStart: { route = .select })
+            case .select:
+                CountrySelectView(
+                    onStart: { h, a in home = h; away = a; route = .match },
+                    onBack: { route = .title }
+                )
             case .match:
-                MatchView(server: server, onExit: { route = .title })
+                MatchView(server: server, home: home, away: away, onExit: { route = .title })
             }
         }
         .frame(minWidth: 960, minHeight: 600)
         .animation(.easeInOut(duration: 0.25), value: route)
         .onAppear { titleBGM.play() }
         .onChange(of: route) { _, newRoute in
-            // タイトルでは BGM、試合中はスタジアム環境音に切替。
-            if newRoute == .title { titleBGM.play() } else { titleBGM.stop() }
+            // タイトル/選択画面では BGM、試合中はスタジアム環境音に切替。
+            if newRoute == .match { titleBGM.stop() } else { titleBGM.play() }
         }
     }
 }
@@ -42,12 +49,12 @@ private struct TitleView: View {
                 Text("SOCCER STRIKER")
                     .font(.system(size: 56, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
-                Text("4 vs 4 ・ iPhone を振って蹴る")
+                Text("4 vs 4 · Swing your iPhone to kick")
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.7))
 
                 Button(action: onStart) {
-                    Text("キックオフ")
+                    Text("KICK OFF")
                         .font(.title2.bold())
                         .padding(.horizontal, 48).padding(.vertical, 16)
                         .background(Color.green, in: Capsule())
@@ -55,7 +62,7 @@ private struct TitleView: View {
                 }
                 .buttonStyle(.plain)
 
-                Text("両チームは AI が自動でプレイします。\nシュートチャンスとピンチでゲージが出るので iPhone を振る（または Space）で介入！")
+                Text("Both teams are played by AI.\nGauges appear on chances & pinches — swing your iPhone (or Space) to step in!")
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.45))

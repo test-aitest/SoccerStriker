@@ -12,5 +12,8 @@ node_modules/
 # Generated web bundles (built from WebSource/ via npm run build)
 SoccerStrikerMac/Resources/web/
 
+# Secrets (.env 相当) — ローカルのみ。テンプレートは Secrets.example.xcconfig
+Config/Secrets.xcconfig
+
 # macOS
 .DS_Store

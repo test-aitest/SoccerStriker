@@ -24,14 +24,14 @@ struct KickView: View {
                     Image(systemName: "figure.soccer")
                         .font(.system(size: 84))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("チャンス＆ピンチで\nこの iPhone を振る！")
+                    Text("Swing this iPhone\non chances & pinches!")
                         .font(.title3.bold())
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white)
                     Text(score)
                         .font(.system(size: 44, weight: .black, design: .rounded))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("Mac 画面のゲージを見てタイミングよく")
+                    Text("Watch the gauge on the Mac screen")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -61,7 +61,7 @@ struct KickView: View {
             } else {
                 VStack(spacing: 8) {
                     ProgressView().tint(.white)
-                    Text("Mac を探しています...")
+                    Text("Searching for Mac...")
                         .font(.caption).foregroundStyle(.white.opacity(0.7))
                 }
             }

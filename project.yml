@@ -28,6 +28,9 @@ targets:
     type: application
     platform: macOS
     deploymentTarget: "15.0"
+    configFiles:
+      Debug: Config/Secrets.xcconfig
+      Release: Config/Secrets.xcconfig
     scheme:
       testTargets:
         - SoccerStrikerMacTests
@@ -40,10 +43,20 @@ targets:
           - "Resources/web/**"
           - "Resources/audio"
           - "Resources/audio/**"
+          - "Resources/flags"
+          - "Resources/flags/**"
+          - "Resources/teams"
+          - "Resources/teams/**"
       - path: SoccerStrikerMac/Resources/web
         type: folder
         buildPhase: resources
       - path: SoccerStrikerMac/Resources/audio
+        type: folder
+        buildPhase: resources
+      - path: SoccerStrikerMac/Resources/flags
+        type: folder
+        buildPhase: resources
+      - path: SoccerStrikerMac/Resources/teams
         type: folder
         buildPhase: resources
     dependencies:

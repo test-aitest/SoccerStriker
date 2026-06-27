@@ -4,6 +4,7 @@ import SoccerShared
 import WebSceneKit
 import QuartzCore
 import AppKit
+import SwiftUI
 import simd
 
 /// 試合のオーケストレーション層。
@@ -30,6 +31,21 @@ final class GameModel {
     private(set) var chance: Chance?
 
     private let audio = AudioFX()
+    private let brain = AgentBrain()
+    /// Gemini エージェントが意図を供給できているか（HUD 表示用）。
+    private(set) var aiActive = false
+    private var aiTask: Task<Void, Never>?
+    private let homeCountry: Country
+    private let awayCountry: Country
+    private let homeColorHex: String
+    private let awayColorHex: String
+
+    /// 試合中のカットイン演出（横からスライドインする選手＋見出し）。
+    private(set) var cutIn: CutIn?
+    private var cutInTimeLeft: Float = 0
+    private var cutInSeq = 0
+    private var dribbleCutInCooldown: Float = 0
+    private var managerCutInCooldown: Float = 0
 
     private var timer: Timer?
     private var lastTickHost: CFTimeInterval = 0
@@ -40,8 +56,12 @@ final class GameModel {
     private var prevHome = 0                   // 得点演出の差分検出
     private var prevAway = 0
 
-    init(server: NetworkServer? = nil) {
+    init(server: NetworkServer? = nil, home: Country = .japan, away: Country = .brazil) {
         self.server = server
+        self.homeCountry = home
+        self.awayCountry = away
+        self.homeColorHex = home.primaryHex
+        self.awayColorHex = away.primaryHex
         server?.onKick = { [weak self] kick in
             self?.pendingKick = kick
         }
@@ -60,12 +80,57 @@ final class GameModel {
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
+        startAILoop()
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        aiTask?.cancel()
+        aiTask = nil
         audio.stop()
+    }
+
+    // MARK: - AI エージェント（Gemini 3.5 Flash）
+
+    /// 数秒ごとに局面を Gemini に渡し、各選手の意図を受け取ってエンジンに適用する。
+    /// 応答待ちの間も 60Hz ループは直前の意図を実行し続ける。
+    private func startAILoop() {
+        aiTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                if self.phase == .play {
+                    let prompt = self.buildAgentPrompt()
+                    if let intents = await self.brain.decide(prompt: prompt), !intents.isEmpty {
+                        self.engine.setIntentions(intents)
+                        self.aiActive = true
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)  // 1.5 秒間隔
+            }
+        }
+    }
+
+    /// 現在の局面を Gemini への指示文に整形する。
+    private func buildAgentPrompt() -> String {
+        func roleName(_ r: PlayerRole) -> String {
+            switch r { case .keeper: "GK"; case .defender: "DF"; case .midfielder: "MF"; case .forward: "FW" }
+        }
+        let b = engine.ball
+        var lines: [String] = []
+        for p in engine.players where !p.isKeeper {
+            lines.append("  {id:\(p.id), team:\"\(p.side.rawValue)\", role:\"\(roleName(p.role))\", x:\(String(format: "%.1f", p.pos.x)), z:\(String(format: "%.1f", p.pos.y))}")
+        }
+        return """
+        あなたはサッカーAIの監督エージェント。両チームの全フィールド選手の次の行動(意図)を決める。
+        ピッチ: 横幅x=±\(Int(Pitch.width/2)), 縦z=±\(Int(Pitch.length/2))。homeは z=-\(Int(Pitch.length/2)) のゴールを攻め、awayは z=+\(Int(Pitch.length/2)) を攻める。
+        ボール位置: x=\(String(format: "%.1f", b.pos.x)), z=\(String(format: "%.1f", b.pos.z))。スコア home \(engine.homeScore) - \(engine.awayScore) away。
+        選手一覧:
+        \(lines.joined(separator: "\n"))
+        各選手に action(move/dribble/shoot/pass/mark/support/hold) と移動先 targetX,targetZ を割り当て、
+        攻撃側はスペースへ走り得点を狙い、守備側は相手をmarkしゴール前を固めるように連携させること。
+        passの場合は passTo に味方の id を入れる。全フィールド選手分を JSON 配列で返す。
+        """
     }
 
     /// キーボードからのデバッグ振り（iPhone なしで動作確認）。チャンス中は「振り」として消費される。
@@ -84,6 +149,8 @@ final class GameModel {
         lastTickHost = now
         dt = min(max(dt, 0), 1.0 / 20.0)
 
+        updateCutIn(dt: dt)
+
         switch phase {
         case .play:
             pendingKick = nil  // チャンス外の振りは無視
@@ -93,6 +160,18 @@ final class GameModel {
             if afterSpeed - beforeSpeed > 5 { audio.kick() }   // 蹴った瞬間
             syncScore()
             forwardOutcome(engine.lastOutcome)
+            // 良いドリブルが出たらカットイン（連発防止クールダウン付き）。
+            if dribbleCutInCooldown > 0 { dribbleCutInCooldown -= dt }
+            if let side = engine.notableDribble, dribbleCutInCooldown <= 0 {
+                let c = (side == .home) ? homeCountry : awayCountry
+                showCutIn(image: c.dribbleImage, title: "NICE DRIBBLE!", color: c.primaryColor, fromLeft: side == .home)
+                dribbleCutInCooldown = 6
+            }
+            // AI の采配が的中（パス成功/マーク奪取）したら監督カットイン。
+            if managerCutInCooldown > 0 { managerCutInCooldown -= dt }
+            if let side = engine.tacticSuccess, managerCutInCooldown <= 0 {
+                managerCutIn(for: side)
+            }
             if triggerCooldown > 0 {
                 triggerCooldown -= dt
             } else {
@@ -105,10 +184,33 @@ final class GameModel {
         pushState()
     }
 
-    /// スコアの増分に応じてゴール/失点の効果音を鳴らす。
+    /// カットインの寿命管理。
+    private func updateCutIn(dt: Float) {
+        guard cutIn != nil else { return }
+        cutInTimeLeft -= dt
+        if cutInTimeLeft <= 0 { cutIn = nil }
+    }
+
+    private func showCutIn(image: NSImage?, title: String, color: Color, fromLeft: Bool, isManager: Bool = false) {
+        cutInSeq += 1
+        cutIn = CutIn(id: cutInSeq, image: image, title: title, color: color, fromLeft: fromLeft, isManager: isManager)
+        cutInTimeLeft = isManager ? 2.0 : 1.7
+    }
+
+    /// スコアの増分に応じてゴール/失点の効果音＋得点側の監督カットイン。
     private func reactToScore() {
-        if homeScore > prevHome { audio.goal(); prevHome = homeScore }
-        if awayScore > prevAway { audio.conceded(); prevAway = awayScore }
+        if homeScore > prevHome { audio.goal(); prevHome = homeScore; managerCutIn(for: .home) }
+        if awayScore > prevAway { audio.conceded(); prevAway = awayScore; managerCutIn(for: .away) }
+    }
+
+    /// 监督「采配的中」カットイン。
+    private func managerCutIn(for side: TeamSide) {
+        let c = (side == .home) ? homeCountry : awayCountry
+        let lines = ["TACTICS ON POINT!", "JUST AS PLANNED!", "GREAT CALL!", "GOTCHA!"]
+        let text = lines[cutInSeq % lines.count]
+        showCutIn(image: c.directorImage, title: text, color: c.primaryColor,
+                  fromLeft: side == .home, isManager: true)
+        managerCutInCooldown = 5
     }
 
     private func syncScore() {
@@ -119,7 +221,7 @@ final class GameModel {
     /// エンジン内部で起きた結果（主に枠外など）を演出/振動へ。
     private func forwardOutcome(_ outcome: GoalEvent.Outcome?) {
         guard let outcome, outcome == .miss else { return }
-        lastEventLabel = "枠外"
+        lastEventLabel = "MISS"
     }
 
     // MARK: - Chance
@@ -145,6 +247,15 @@ final class GameModel {
         pendingKick = nil
         lastEventLabel = ""
         audio.chanceCue()
+        // シュートのカットイン演出（攻撃＝自国, 守備＝相手国が横から入る）。
+        switch kind {
+        case .shot:
+            showCutIn(image: homeCountry.shootImage, title: "SHOOT!",
+                      color: homeCountry.primaryColor, fromLeft: true)
+        case .save:
+            showCutIn(image: awayCountry.shootImage, title: "DANGER!",
+                      color: awayCountry.primaryColor, fromLeft: false)
+        }
         // iPhone に「今だ！」の合図（軽い振動）。
         server?.sendGoal(GoalEvent(outcome: .touch, intensity: 0.6, teamScore: homeScore, opponentScore: awayScore))
     }
@@ -209,22 +320,22 @@ final class GameModel {
         case .shot:
             if success {
                 engine.awardGoal(to: .home)
-                lastEventLabel = "ナイスシュート！ GOAL!!"
+                lastEventLabel = "GREAT SHOT! GOAL!!"
                 out = .goal
             } else {
                 engine.clearBall(towardZ: 1)   // 相手 GK がキャッチ → 自陣側へ
-                lastEventLabel = "シュート失敗…"
+                lastEventLabel = "SHOT MISSED…"
                 out = .save
             }
         case .save:
             if success {
                 engine.clearBall(towardZ: -1)  // 前方へ大きくクリア
-                lastEventLabel = "ナイスセーブ！"
+                lastEventLabel = "GREAT SAVE!"
                 audio.save()
                 out = .save
             } else {
                 engine.awardGoal(to: .away)
-                lastEventLabel = "失点…"
+                lastEventLabel = "CONCEDED…"
                 out = .conceded
             }
         }
@@ -261,8 +372,22 @@ final class GameModel {
             "players": playersPayload,
             "home": engine.homeScore,
             "away": engine.awayScore,
+            "homeShirt": homeColorHex,
+            "homeShorts": homeCountry.secondaryHex,
+            "awayShirt": awayColorHex,
+            "awayShorts": awayCountry.secondaryHex,
         ])
     }
+}
+
+/// 試合中の演出カットイン（横からスライドインする選手＋見出し）。
+struct CutIn: Identifiable {
+    let id: Int
+    let image: NSImage?
+    let title: String
+    let color: Color
+    let fromLeft: Bool
+    var isManager: Bool = false
 }
 
 /// 人間チャンスの状態。SwiftUI のゲージはこの値を描画する。
@@ -285,10 +410,10 @@ struct Chance {
 
     var title: String {
         switch (kind, gauge) {
-        case (.shot, .timing): return "シュートチャンス！ ゾーンで振れ"
-        case (.shot, .power):  return "シュートチャンス！ 連打でパワー溜め"
-        case (.save, .timing): return "ピンチ！ ゾーンで振ってセーブ"
-        case (.save, .power):  return "ピンチ！ 連打で弾き返せ"
+        case (.shot, .timing): return "SHOOT! Swing in the zone"
+        case (.shot, .power):  return "SHOOT! Mash to charge power"
+        case (.save, .timing): return "DANGER! Swing in the zone to save"
+        case (.save, .power):  return "DANGER! Mash to block"
         }
     }
 }

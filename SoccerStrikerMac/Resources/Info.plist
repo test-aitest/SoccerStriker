@@ -32,5 +32,7 @@
     <array>
         <string>_socstrk._udp</string>
     </array>
+    <key>GeminiAPIKey</key>
+    <string>$(GEMINI_API_KEY)</string>
 </dict>
 </plist>

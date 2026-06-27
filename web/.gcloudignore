@@ -1,0 +1,9 @@
+# `gcloud run deploy --source .` でアップロードしないもの。
+# （Dockerfile / アセットはアップロード対象なので除外しない）
+.git
+.gitignore
+*.log
+.DS_Store
+DEPLOY.md
+README.md
+deploy.sh

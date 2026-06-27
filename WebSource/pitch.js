@@ -220,7 +220,7 @@ function makePlayer(side, keeper) {
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.visible = false; g.add(ring);
 
   g.userData = {
-    legL, legR, armL, armR, torso, head,
+    legL, legR, armL, armR, torso, hip, head,
     ring, phase: Math.random() * 6.28,
     cur: new THREE.Vector3(), tgt: new THREE.Vector3(),
     facing: side === 'home' ? Math.PI : 0, initialized: false,
@@ -231,7 +231,19 @@ function makePlayer(side, keeper) {
 
 const players = new Map(); // id -> group
 
+// チームカラー（Swift から hex で届く）。shirt=上着, shorts=パンツ。
+const teamShirt = { home: 0x33b5ff, away: 0xff7043 };
+const teamShorts = { home: 0xffffff, away: 0x222222 };
+function hexToInt(h) {
+  if (typeof h !== 'string') return null;
+  return parseInt(h.replace('#', ''), 16);
+}
+
 function applyState(s) {
+  if (s.homeShirt)  { const c = hexToInt(s.homeShirt);  if (c != null) teamShirt.home = c; }
+  if (s.awayShirt)  { const c = hexToInt(s.awayShirt);  if (c != null) teamShirt.away = c; }
+  if (s.homeShorts) { const c = hexToInt(s.homeShorts); if (c != null) teamShorts.home = c; }
+  if (s.awayShorts) { const c = hexToInt(s.awayShorts); if (c != null) teamShorts.away = c; }
   if (s.ball) {
     ball.userData.tgt = s.ball;
   }
@@ -243,6 +255,17 @@ function applyState(s) {
       u.tgt.set(p.x, 0, p.z);
       if (!u.initialized) { u.cur.set(p.x, 0, p.z); g.position.copy(u.cur); u.initialized = true; }
       u.ring.visible = !!p.ctrl;
+      // ユニフォーム色を反映（上着=torso+腕, パンツ=腰+脚。操作中は足元リングで示す。GKは緑のまま）。
+      if (!p.keeper) {
+        const shirt = teamShirt[p.side];
+        const shorts = teamShorts[p.side];
+        if (u.torso) u.torso.material.color.setHex(shirt);
+        if (u.armL) u.armL.children[0].material.color.setHex(shirt);
+        if (u.armR) u.armR.children[0].material.color.setHex(shirt);
+        if (u.hip) u.hip.material.color.setHex(shorts);
+        if (u.legL) u.legL.children[0].material.color.setHex(shorts);
+        if (u.legR) u.legR.children[0].material.color.setHex(shorts);
+      }
     }
   }
 }

@@ -1,0 +1,38 @@
+# nginx 公式イメージが起動時に envsubst で ${PORT} を実値へ置換する
+# （/etc/nginx/templates/*.template → /etc/nginx/conf.d/*.conf）。
+# ${PORT} 以外の nginx 変数（$uri など）は環境変数に存在しないため温存される。
+server {
+    listen       ${PORT};
+    listen       [::]:${PORT};
+    server_name  _;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # JS モジュール / importmap が正しい MIME で配られるよう明示。
+    types {
+        text/html                             html;
+        text/css                              css;
+        application/javascript                js mjs;
+        image/svg+xml                         svg;
+        image/png                             png;
+        audio/mpeg                            mp3;
+        application/json                      json map;
+    }
+    default_type application/octet-stream;
+
+    # three.js やアセットはハッシュ無しなので短めのキャッシュ。
+    location ~* \.(js|mjs|css|svg|png|mp3)$ {
+        expires 1h;
+        add_header Cache-Control "public";
+    }
+
+    # それ以外は index.html を返す（直リンク対策）。
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_types text/css application/javascript image/svg+xml application/json;
+    gzip_min_length 1024;
+}

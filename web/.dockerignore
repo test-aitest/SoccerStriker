@@ -1,0 +1,9 @@
+# コンテナへ入れないもの。
+Dockerfile
+.dockerignore
+.gcloudignore
+deploy.sh
+DEPLOY.md
+README.md
+*.log
+.DS_Store

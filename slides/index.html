@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soccer Striker — Pitch Deck</title>
+<style>
+  :root{
+    --bg:#06140c; --bg2:#0a2417; --ink:#f2f7f3; --mut:#8fae9c;
+    --accent:#36d07f; --accent2:#7cf0b0; --line:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 70% -10%, #103a25 0%, var(--bg) 55%);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,system-ui,sans-serif;
+    overflow:hidden;
+  }
+  .deck{height:100vh;width:100vw;position:relative}
+  .slide{
+    position:absolute;inset:0;display:none;
+    padding:7vh 9vw;flex-direction:column;justify-content:center;
+    opacity:0;transition:opacity .35s ease;
+  }
+  .slide.on{display:flex;opacity:1}
+  .kicker{
+    font-size:.95rem;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;margin-bottom:1.4rem;
+  }
+  h1{font-size:clamp(2.6rem,6.4vw,5.4rem);line-height:1.02;font-weight:850;letter-spacing:-.02em}
+  h2{font-size:clamp(1.9rem,3.8vw,3rem);line-height:1.08;font-weight:800;letter-spacing:-.01em;margin-bottom:2rem}
+  .lead{font-size:clamp(1.1rem,1.8vw,1.5rem);color:var(--mut);margin-top:1.6rem;max-width:60ch;line-height:1.5}
+  ul{list-style:none;display:flex;flex-direction:column;gap:1.15rem;max-width:74ch}
+  li{position:relative;padding-left:1.6rem;font-size:clamp(1.05rem,1.7vw,1.5rem);line-height:1.45}
+  li::before{content:"";position:absolute;left:0;top:.62em;width:.6rem;height:.6rem;border-radius:2px;background:var(--accent);transform:rotate(45deg)}
+  li b{color:var(--accent2);font-weight:700}
+  .muted{color:var(--mut)}
+  .big{font-size:clamp(1.4rem,2.4vw,2.1rem);line-height:1.4;max-width:64ch;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem 3rem;max-width:80ch}
+  .flow{display:flex;flex-direction:column;gap:.7rem;margin-top:1rem;font-size:clamp(1rem,1.5vw,1.35rem)}
+  .box{border:1px solid var(--line);border-radius:12px;padding:1rem 1.25rem;background:rgba(255,255,255,.03)}
+  .box b{color:var(--accent2)}
+  .arrow{color:var(--accent);text-align:center;font-size:1.4rem;line-height:1}
+  .foot{position:absolute;left:9vw;bottom:4.5vh;color:var(--mut);font-size:.85rem;letter-spacing:.04em}
+  .num{position:absolute;right:9vw;bottom:4.5vh;color:var(--mut);font-size:.85rem;font-variant-numeric:tabular-nums}
+  .bar{position:absolute;left:0;top:0;height:100%;width:.5rem;background:linear-gradient(var(--accent),transparent)}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.35rem .9rem;color:var(--mut);font-size:.95rem;margin:.2rem .3rem 0 0}
+  .hint{position:fixed;right:1rem;top:1rem;color:var(--mut);font-size:.75rem;opacity:.6}
+
+  /* --- PDF / 印刷：全スライドを 16:9 で 1 ページずつ --- */
+  @media print{
+    @page{ size:13.333in 7.5in; margin:0 }
+    html,body{height:auto;overflow:visible;background:var(--bg);
+      -webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .hint,.num{display:none!important}
+    .deck{height:auto}
+    .slide{
+      position:relative!important;inset:auto!important;
+      display:flex!important;opacity:1!important;
+      width:13.333in;height:7.5in;
+      break-after:page;page-break-after:always;
+      background:radial-gradient(1200px 700px at 70% -10%, #103a25 0%, var(--bg) 55%);
+    }
+    .slide:last-child{page-break-after:auto;break-after:auto}
+  }
+</style>
+</head>
+<body>
+<div class="hint">use arrow keys</div>
+<div class="deck" id="deck">
+
+  <!-- 1 -->
+  <section class="slide on">
+    <div class="bar"></div>
+    <div class="kicker">Gemini Tokyo Hackathon 2026</div>
+    <h1>SOCCER<br>STRIKER</h1>
+    <p class="lead">AI agents play the match. You step in at the moments that matter.</p>
+    <div class="foot">A real-time, agent-driven football game</div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Why this app</div>
+    <h2>Make AI agents that actually play football</h2>
+    <ul>
+      <li><b>The moment:</b> the 2026 World Cup in the USA — football has the world's attention.</li>
+      <li><b>The idea:</b> agents that genuinely play and cooperate, not scripted bots.</li>
+      <li><b>For everyone:</b> natural motion control, like Nintendo Wii Sports — swing the iPhone to play.</li>
+    </ul>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">What it is</div>
+    <h2>4 vs 4. Both teams are autonomous AI agents.</h2>
+    <ul>
+      <li><b>Mac is the pitch</b> — the full 3D match runs here.</li>
+      <li><b>iPhone is the controller</b> — a motion controller in your hand.</li>
+      <li>You don't micromanage. You <b>intervene at decisive moments</b> by swinging your iPhone.</li>
+    </ul>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">The hard problem</div>
+    <h2>An LLM cannot drive a 60fps game</h2>
+    <p class="big">Calling a model every frame is impossible — network latency runs from hundreds of milliseconds to seconds, and the cost is prohibitive.</p>
+    <p class="lead">So how can a Gemini agent <b>genuinely play in real time?</b></p>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Strength 1 — Gemini as the brain</div>
+    <h2>Hybrid agent loop</h2>
+    <div class="flow">
+      <div class="box"><b>Gemini 3.5 Flash</b> decides intentions every ~1.5s — per player: move / mark / pass / shoot / support</div>
+      <div class="arrow">v</div>
+      <div class="box"><b>60Hz local engine</b> executes those intentions every frame</div>
+    </div>
+    <p class="lead">Gemini is the decision-maker; the engine is the muscle. The game never stalls waiting on the model, and it stays in character.</p>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Strength 2 — Believable team play</div>
+    <h2>Real-time multi-agent behavior</h2>
+    <ul>
+      <li>Possession model, player roles, <b>steering with separation</b> (no clustering), man-marking, pass-lane checks, off-ball runs.</li>
+      <li>Pure-Swift, <b>deterministic engine</b> — covered by 16 unit tests.</li>
+      <li>Runs fully offline and <b>gracefully falls back to rule AI</b> if the API is unavailable.</li>
+    </ul>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Strength 3 — Human in the loop</div>
+    <h2>Motion control, Wii-Sports style</h2>
+    <ul>
+      <li><b>iPhone motion controller:</b> CoreMotion at 100Hz — swing to kick.</li>
+      <li>Connects to the Mac over <b>Bonjour + UDP peer-to-peer</b> — zero setup.</li>
+      <li>Decisive moments trigger <b>timing and power gauges</b>; nail it and the manager reacts: "tactics on point."</li>
+    </ul>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Where we put the effort</div>
+    <h2>Craft that sells the fantasy</h2>
+    <ul>
+      <li>3D pitch and players in <b>Three.js</b> (WebView) — run animation, uniforms per nation.</li>
+      <li>Nation select with real flags and player models; <b>cut-in animations</b> for shots, dribbles, and the manager.</li>
+      <li>Audio: procedural SFX plus stadium ambience. Gemini key handled via an <b>.env-style xcconfig</b>.</li>
+    </ul>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Stack</div>
+    <h2>How it is built</h2>
+    <div class="grid">
+      <ul><li><b>AI</b><br><span class="muted">Gemini 3.5 Flash — Gemini API, agentic, JSON-structured output</span></li>
+          <li><b>App</b><br><span class="muted">Swift 6 / SwiftUI — macOS game + iOS controller, shared package</span></li></ul>
+      <ul><li><b>Render</b><br><span class="muted">Three.js / WebKit</span></li>
+          <li><b>Motion &amp; Net</b><br><span class="muted">CoreMotion, Network.framework (Bonjour/UDP)</span></li></ul>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <div class="bar"></div>
+    <div class="kicker">Vision</div>
+    <h1>Agents play.<br>Humans join in.</h1>
+    <p class="lead">Next: 11 vs 11, deeper tactics direct from the agent, more nations, and online play.</p>
+    <div class="foot">Soccer Striker — Gemini Tokyo Hackathon 2026</div>
+  </section>
+
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  const num=document.createElement('div');num.className='num';document.body.appendChild(num);
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+    num.textContent=(i+1)+' / '+slides.length;
+  }
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','ArrowDown',' ','PageDown','Enter'].includes(e.key)){show(i+1);e.preventDefault();}
+    if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(e.key)){show(i-1);e.preventDefault();}
+    if(e.key==='Home')show(0); if(e.key==='End')show(slides.length-1);
+  });
+  document.addEventListener('click',()=>show(i+1));
+  show(0);
+</script>
+</body>
+</html>

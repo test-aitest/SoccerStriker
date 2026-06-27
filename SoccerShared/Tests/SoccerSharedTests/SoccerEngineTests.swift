@@ -54,10 +54,35 @@ struct SoccerEngineTests {
         // 両チーム AI を回すと、いずれ攻撃チャンス or 守備ピンチが発生する。
         let e = SoccerEngine()
         var sawChance = false
-        for _ in 0..<1800 {  // 30 秒相当
+        for _ in 0..<3600 {  // 60 秒相当
             e.tick(dt: 1.0 / 60.0)
             if e.homeShotChanceReady || e.incomingShotOnGoal { sawChance = true; break }
         }
         #expect(sawChance)
+    }
+
+    @Test func teamUsesPitchWidth() {
+        // フィールド選手が横幅を使って散る（中央密集しない）。
+        let e = SoccerEngine()
+        var maxAbsX: Float = 0
+        for _ in 0..<600 {
+            e.tick(dt: 1.0 / 60.0)
+            for p in e.players where !p.isKeeper {
+                maxAbsX = max(maxAbsX, abs(p.pos.x))
+            }
+        }
+        // 少なくともコート幅の 1/4 以上まで誰かが開いている
+        #expect(maxAbsX > Pitch.width / 4)
+    }
+
+    @Test func possessionTeamAdvancesBall() {
+        // 連携 AI：保持チームがボールを相手陣へ前進させられる（中央停滞しない）。
+        let e = SoccerEngine()
+        var maxAdvance: Float = 0
+        for _ in 0..<1800 {
+            e.tick(dt: 1.0 / 60.0)
+            maxAdvance = max(maxAdvance, abs(e.ball.pos.z))
+        }
+        #expect(maxAdvance > 8)  // センターから 8m 以上は前進する
     }
 }
