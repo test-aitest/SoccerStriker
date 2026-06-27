@@ -1,0 +1,17 @@
+{
+  "name": "soccer-striker-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Three.js pitch scene bundled for the Soccer Striker macOS app via WebSceneKit.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "three": "0.183.2"
+  }
+}

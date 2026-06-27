@@ -1,0 +1,100 @@
+name: SoccerStriker
+options:
+  bundleIdPrefix: com.yabetatuki.soccerstriker
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "15.0"
+    iOS: "18.0"
+  developmentLanguage: ja
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: NO
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  SoccerShared:
+    path: SoccerShared
+  WebSceneKit:
+    path: Packages/WebSceneKit
+
+targets:
+  SoccerStrikerMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.0"
+    scheme:
+      testTargets:
+        - SoccerStrikerMacTests
+    sources:
+      - path: SoccerStrikerMac
+        excludes:
+          - "Resources/SoccerStrikerMac.entitlements"
+          - "Resources/Info.plist"
+          - "Resources/web"
+          - "Resources/web/**"
+          - "Resources/audio"
+          - "Resources/audio/**"
+      - path: SoccerStrikerMac/Resources/web
+        type: folder
+        buildPhase: resources
+      - path: SoccerStrikerMac/Resources/audio
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: SoccerShared
+        product: SoccerShared
+      - package: WebSceneKit
+        product: WebSceneKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yabetatuki.soccerstriker.mac
+        PRODUCT_NAME: SoccerStriker
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        INFOPLIST_FILE: SoccerStrikerMac/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SoccerStrikerMac/Resources/SoccerStrikerMac.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+
+  SoccerStrikerKick:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: SoccerStrikerKick
+        excludes:
+          - "Resources/Info.plist"
+    dependencies:
+      - package: SoccerShared
+        product: SoccerShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yabetatuki.soccerstriker.kick
+        PRODUCT_NAME: SoccerStrikerKick
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_FILE: SoccerStrikerKick/Resources/Info.plist
+        CODE_SIGN_STYLE: Automatic
+
+  SoccerStrikerMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: SoccerStrikerMacTests
+    dependencies:
+      - target: SoccerStrikerMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yabetatuki.soccerstriker.mac.tests
+        PRODUCT_NAME: SoccerStrikerMacTests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SoccerStriker.app/Contents/MacOS/SoccerStriker"

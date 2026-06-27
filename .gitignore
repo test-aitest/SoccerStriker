@@ -1,0 +1,16 @@
+# Xcode / SwiftPM
+*.xcodeproj
+.build/
+.swiftpm/
+DerivedData/
+.derivedData/
+*.xcuserstate
+
+# Node
+node_modules/
+
+# Generated web bundles (built from WebSource/ via npm run build)
+SoccerStrikerMac/Resources/web/
+
+# macOS
+.DS_Store
